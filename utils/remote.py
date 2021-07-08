@@ -25,6 +25,8 @@ class Cluster:
                 pass
 
     def query(self, command):
+        command = command.encode()
+
         outputs = {}
 
         for name, sock in zip(list(self.sockets.keys()), list(self.sockets.values())):
