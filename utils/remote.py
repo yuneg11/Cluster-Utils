@@ -2,6 +2,7 @@ import socket
 
 
 SOCK_TIMEOUT = 1
+SSH_TIMEOUT = 1
 RECV_BUFFER = 4000
 
 
