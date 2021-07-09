@@ -41,3 +41,12 @@ def load_json(file_path="hosts.json"):
         return data
     except:
         raise ValueError(f"Failed to load file from '{file_path}'")
+
+
+def connection_style(term, connection_type):
+    if connection_type == "tcp":
+        return term.white
+    elif connection_type == "ssh":
+        return term.yellow
+    else:
+        return term.red

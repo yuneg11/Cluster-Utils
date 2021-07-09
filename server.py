@@ -13,8 +13,6 @@ def get_htop():
     return subprocess.check_output(["echo q | htop -C"], shell=True)
 
 
-try_count = 0
-
 while True:
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:

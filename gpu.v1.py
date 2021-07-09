@@ -16,13 +16,33 @@ def print_stat(cluster, term=None, eol_char=os.linesep, **kwargs):
 
     outputs = cluster.query("nvidia-smi")
 
-    for name, output in outputs.items():
+    maxlen = max([len(n) for n in outputs.keys()])
+
+    for name, (connection_type, output) in outputs.items():
         if isinstance(output, Exception):
-            stat = term.blue(str(output))
+            # stat = term.blue(str(output))  # For detailed error message
+            stat = term.blue("Connection error")
         else:
             stat = gpu_stat.get_status(term=term, output=output, **kwargs)
 
-        print(f"[{name}] {stat}", end=eol_char)
+        name_style = misc.connection_style(term, connection_type)
+
+        print(f"[{name_style(name.ljust(maxlen))}] {stat}", end=eol_char)
+
+    if "ssh" in [t for t, _ in outputs.values()]:
+        print(
+            "\n" + term.yellow("Some server monitor(s) are running in fallback mode.") + term.clear_eol + \
+            "\n" + term.yellow("Please contact to admin.") + term.clear_eol,
+            end=eol_char
+        )
+
+    if None in [t for t, _ in outputs.values()]:
+        print(
+            "\n" + term.red("Cannot connect to some server monitor(s).") + term.clear_eol + \
+            "\n" + term.red("Please contact to admin.") + term.clear_eol,
+            end=eol_char
+        )
+
 
 
 HELP = """
@@ -72,7 +92,7 @@ if __name__ == "__main__":
                 exit(-1)
 
         # temporary remote extraction
-        hosts = {name: host["remote"] for name, host in hosts.items()}
+        hosts = {name: host for name, host in hosts.items()}
     except ValueError as e:
         print(e)
         exit(-1)
