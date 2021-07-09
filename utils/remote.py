@@ -3,12 +3,12 @@ import asyncio
 import subprocess
 
 
-SOCK_TIMEOUT = 1
+SOCK_TIMEOUT = 2
 SSH_TIMEOUT = 2
 RECV_BUFFER = 6000
 
 
-class Server:
+class Client:
     def __init__(self, host):
         self.type = None
         self.socket = None
@@ -89,19 +89,19 @@ class Server:
 
 class Cluster:
     def __init__(self, hosts):
-        self.servers = {name: Server(host) for name, host in hosts.items()}
+        self.clients = {name: Client(host) for name, host in hosts.items()}
 
     def query(self, command):
-        # outputs = {name: server.query(command) for name, server in self.servers.items()}
+        # outputs = {name: client.query(command) for name, client in self.clients.items()}
 
         futures = [
-            asyncio.ensure_future(server.query(command))
-            for server in self.servers.values()
+            asyncio.ensure_future(client.query(command))
+            for client in self.clients.values()
         ]
 
         loop = asyncio.get_event_loop()
         results = loop.run_until_complete(asyncio.gather(*futures))
-        outputs = {name: output for name, output in zip(self.servers.keys(), results)}
+        outputs = {name: output for name, output in zip(self.clients.keys(), results)}
         # loop.close()
 
         return outputs

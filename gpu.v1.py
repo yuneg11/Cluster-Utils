@@ -45,7 +45,6 @@ def print_stat(cluster, term=None, eol_char=os.linesep, debug=False, **kwargs):
         )
 
 
-
 HELP = """
 Remote GPU Monitor
 
