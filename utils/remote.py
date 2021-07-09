@@ -5,7 +5,7 @@ import subprocess
 
 SOCK_TIMEOUT = 2
 SSH_TIMEOUT = 2
-RECV_BUFFER = 6000
+RECV_BUFFER = 10000
 
 
 class Client:
