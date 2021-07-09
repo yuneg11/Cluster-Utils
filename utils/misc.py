@@ -5,7 +5,7 @@ import json
 from blessed import Terminal
 
 
-def loop_update(func, *args, interval=1, **kwargs):
+def loop_update(func, *args, interval=1, debug=False, **kwargs):
     term = Terminal()
 
     with term.fullscreen():
@@ -21,12 +21,17 @@ def loop_update(func, *args, interval=1, **kwargs):
                     *args,
                     term=term,
                     eol_char=(term.clear_eol + os.linesep),
+                    debug=debug,
                     **kwargs,
                 )
                 print(term.clear_eos, end="")
 
                 query_duration = time.time() - query_start
                 sleep_duration = interval - query_duration
+
+                if debug:
+                    print(f"\nquery time: {query_duration:.3f} s")
+
                 if sleep_duration > 0:
                     time.sleep(sleep_duration)
 

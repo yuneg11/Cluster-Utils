@@ -64,7 +64,12 @@ if __name__ == "__main__":
         print(help)
         exit()
 
-    for i in range(1, 9):
+    for i in [1, 2, 3, 4, 5, 6, 7, 8]:
+        if i == 3:
+            printc(f"siml{i:02d}:", Colors.bold)
+            print(" Failed due to ssh issue")
+            continue
+
         command = ["ssh", f"siml{i:02d}", "-o", "LogLevel=QUIET", "-t", "nvidia-smi"]
         output = subprocess.check_output(command).decode("utf-8")
 

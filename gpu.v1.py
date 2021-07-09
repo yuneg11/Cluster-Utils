@@ -10,7 +10,7 @@ from utils import (
 )
 
 
-def print_stat(cluster, term=None, eol_char=os.linesep, **kwargs):
+def print_stat(cluster, term=None, eol_char=os.linesep, debug=False, **kwargs):
     if term is None:
         term = Terminal()
 
@@ -20,13 +20,14 @@ def print_stat(cluster, term=None, eol_char=os.linesep, **kwargs):
 
     for name, (connection_type, output) in outputs.items():
         if isinstance(output, Exception):
-            # stat = term.blue(str(output))  # For detailed error message
-            stat = term.blue("Connection error")
+            if debug:
+                stat = term.blue(str(output))  # For detailed error message
+            else:
+                stat = term.blue("Connection error")
         else:
             stat = gpu_stat.get_status(term=term, output=output, **kwargs)
 
         name_style = misc.connection_style(term, connection_type)
-
         print(f"[{name_style(name.ljust(maxlen))}] {stat}", end=eol_char)
 
     if "ssh" in [t for t, _ in outputs.values()]:
@@ -60,6 +61,7 @@ optional arguments:
   -t, --target-hosts <TARGET...>   Specify target host names to monitor
   -i, --interval [INTERVAL]        Use watch mode if given; seconds update interval
   -f, --hosts-file                 Path to the 'hosts.json' file
+  -d, --debug                      Show information for debugging
 """.strip()
 
 
@@ -67,9 +69,10 @@ if __name__ == "__main__":
     # Parse arguments
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("resource", nargs="?", default="mem", choices=["all", "mem", "util"])
-    parser.add_argument("-f", "--hosts-file", type=str, default="hosts.json")
+    parser.add_argument("-f", "--hosts-file", type=str, default="~/.bin/hosts.json")
     parser.add_argument("-t", "--target-hosts", nargs="+")
     parser.add_argument("-i", "--interval", nargs="?", type=float, default=0)
+    parser.add_argument("-d", "--debug", action="store_true")
     parser.add_argument("-h", "--help", action="store_true")
     args = parser.parse_args()
 
@@ -110,10 +113,12 @@ if __name__ == "__main__":
             print_memory=print_memory,
             print_utilization=print_utilization,
             interval=args.interval,
+            debug=args.debug,
         )
     else:
         print_stat(
             cluster=cluster,
             print_memory=print_memory,
             print_utilization=print_utilization,
+            debug=args.debug,
         )

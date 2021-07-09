@@ -1,5 +1,5 @@
-import copy
 import socket
+import asyncio
 import subprocess
 
 
@@ -31,7 +31,8 @@ class Server:
         if isinstance(self.socket, socket.socket):
             self.socket.close()
 
-    def query(self, command):
+    # def query(self, command):
+    async def query(self, command):
         if self.type is None:
             if self.error is None:
                 self.error = ConnectionError(404, "Host connection failed")
@@ -55,7 +56,7 @@ class Server:
                 self.error = output
                 self.type = None
 
-        return output
+        return (self.type, output)
 
     def tcp_query(self, command):
         try:
@@ -91,10 +92,16 @@ class Cluster:
         self.servers = {name: Server(host) for name, host in hosts.items()}
 
     def query(self, command):
-        outputs = {}
+        # outputs = {name: server.query(command) for name, server in self.servers.items()}
 
-        for name, server in self.servers.items():
-            output = server.query(command)
-            outputs[name] = (server.type, output)
+        futures = [
+            asyncio.ensure_future(server.query(command))
+            for server in self.servers.values()
+        ]
+
+        loop = asyncio.get_event_loop()
+        results = loop.run_until_complete(asyncio.gather(*futures))
+        outputs = {name: output for name, output in zip(self.servers.keys(), results)}
+        # loop.close()
 
         return outputs
