@@ -1,96 +1,123 @@
+import os
 import argparse
-import subprocess
-import re
+
+from blessed import Terminal
+
+from utils import (
+    remote,
+    gpu_stat,
+    misc,
+)
 
 
-TOTAL_MEM = 11019
+def print_stat(cluster, term=None, eol_char=os.linesep, debug=False, **kwargs):
+    if term is None:
+        term = Terminal()
+
+    outputs = cluster.query("nvidia-smi")
+
+    maxlen = max([len(n) for n in outputs.keys()])
+
+    for name, (connection_type, output) in outputs.items():
+        if isinstance(output, Exception):
+            if debug:
+                stat = term.blue(str(output))  # For detailed error message
+            else:
+                stat = term.blue("Connection error")
+        else:
+            stat = gpu_stat.get_status(term=term, output=output, **kwargs)
+
+        name_style = misc.connection_style(term, connection_type)
+        print(f"[{name_style(name.ljust(maxlen))}] {stat}", end=eol_char)
+
+    if "ssh" in [t for t, _ in outputs.values()]:
+        print(
+            "\n" + term.yellow("Some server monitor(s) are running in fallback mode.") + term.clear_eol + \
+            "\n" + term.yellow("Please contact to admin.") + term.clear_eol,
+            end=eol_char
+        )
+
+    if None in [t for t, _ in outputs.values()]:
+        print(
+            "\n" + term.red("Cannot connect to some server monitor(s).") + term.clear_eol + \
+            "\n" + term.red("Please contact to admin.") + term.clear_eol,
+            end=eol_char
+        )
 
 
-class Colors:
-    # HEADER = '\033[95m'
-    blue = '\033[94m'
-    cyan = '\033[96m'
-    green = '\033[92m'
-    yellow = '\033[93m'
-    red = '\033[91m'
-    bold = '\033[1m'
-    end = '\033[0m'
-    # UNDERLINE = '\033[4m'
+HELP = """
+Remote GPU Monitor
 
+usage: gpus [-h] {all, mem, util} [-i [INTERVAL]] [-t <TARGET ...>]
 
-def mem_color(mem, total_mem=TOTAL_MEM):
-    if mem == 0:
-        return Colors.green
-    elif mem / total_mem <= .5:
-        return Colors.yellow
-    else:
-        return Colors.red
+arguments:
+  all:  Print memory and utilization of GPU
+  mem:  Print memory of GPU
+  util: Print utilization of GPU
 
-
-def util_color(util):
-    if util == 0:
-        return Colors.green
-    elif util < 50:
-        return Colors.yellow
-    else:
-        return Colors.red
-
-
-def printc(message, color, end=""):
-    print(color, end="")
-    print(message, end="")
-    print(Colors.end, end=end)
-
-
-help = """
-GSAI SIML GPU Monitor
-
-usage: gpus [-h] {all, mem, util}
-
-all:  Print memory and utilization of GPU
-mem:  Print memory of GPU
-util: Print utilization of GPU
+optional arguments:
+  -h, --help                       Print this help screen
+  -t, --target-hosts <TARGET...>   Specify target host names to monitor
+  -i, --interval [INTERVAL]        Use watch mode if given; seconds update interval
+  -f, --hosts-file                 Path to the 'hosts.json' file
+  -d, --debug                      Show information for debugging
 """.strip()
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="", add_help=False)
-    parser.add_argument("resource", nargs="?", default="mem",
-                        choices=["util", "mem", "all"], help=argparse.SUPPRESS)
+    # Parse arguments
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("resource", nargs="?", default="mem", choices=["all", "mem", "util"])
+    parser.add_argument("-f", "--hosts-file", type=str, default="~/.bin/hosts.json")
+    parser.add_argument("-t", "--target-hosts", nargs="+")
+    parser.add_argument("-i", "--interval", nargs="?", type=float, default=0)
+    parser.add_argument("-d", "--debug", action="store_true")
     parser.add_argument("-h", "--help", action="store_true")
     args = parser.parse_args()
 
     if args.help:
-        print(help)
+        print(HELP)
         exit()
 
-    for i in [1, 2, 3, 4, 5, 6, 7, 8]:
-        if i == 3:
-            printc(f"siml{i:02d}:", Colors.bold)
-            print(" Failed due to ssh issue")
-            continue
+    print_memory = (args.resource in ["mem", "all"])
+    print_utilization = (args.resource in ["util", "all"])
 
-        command = ["ssh", f"siml{i:02d}", "-o", "LogLevel=QUIET", "-t", "nvidia-smi"]
-        output = subprocess.check_output(command).decode("utf-8")
+    # Load hosts
+    try:
+        hosts = misc.load_json(os.path.expanduser(args.hosts_file))
 
-        mems = map(int, re.findall(r"([0-9]+)MiB / [0-9]+MiB", output))
-        utils = map(int, re.findall(r"([0-9]+)% +Default", output))
+        if args.target_hosts:
+            try:
+                hosts = {name: hosts[name] for name in args.target_hosts}
+            except KeyError as e:
+                print(f"Invalid host name {e}")
+                exit(-1)
 
-        printc(f"siml{i:02d}:", Colors.bold)
+        # temporary remote extraction
+        hosts = {name: host for name, host in hosts.items()}
+    except ValueError as e:
+        print(e)
+        exit(-1)
 
-        if args.resource == "mem":
-            for mem in mems:
-                printc(f" {mem:5d} MiB", mem_color(mem))
+    # Prepare sockets
+    cluster = remote.Cluster(hosts)
 
-        elif args.resource == "util":
-            for util in utils:
-                printc(f" {util:3d} %", util_color(util))
-
-        elif args.resource == "all":
-            for mem, util in zip(mems, utils):
-                printc(f" {mem:5d}M", mem_color(mem))
-                print("(", end="")
-                printc(f"{util:3d}%", util_color(util))
-                print(")", end="")
-
-        print()
+    if args.interval is None:
+        args.interval = 2
+    if args.interval > 0:
+        args.interval = max(0.5, args.interval)
+        misc.loop_update(
+            print_stat,
+            cluster=cluster,
+            print_memory=print_memory,
+            print_utilization=print_utilization,
+            interval=args.interval,
+            debug=args.debug,
+        )
+    else:
+        print_stat(
+            cluster=cluster,
+            print_memory=print_memory,
+            print_utilization=print_utilization,
+            debug=args.debug,
+        )

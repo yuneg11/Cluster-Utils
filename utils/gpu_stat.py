@@ -1,6 +1,10 @@
 import re
 
 
+re_mem = re.compile(r"([0-9]+)MiB / ([0-9]+)MiB")
+re_util = re.compile(r"([0-9]+)% +Default")
+
+
 def mem_style(term, mem, total_mem):
     if mem == 0:
         return term.green
@@ -21,11 +25,11 @@ def util_style(term, util):
 
 def get_status(term, output, print_memory=True, print_utilization=True):
     if print_memory:
-        raw_mems = re.findall(r"([0-9]+)MiB / ([0-9]+)MiB", output)
+        raw_mems = re_mem.findall(output)
         mems = [(int(cur_mem), int(total_mem)) for cur_mem, total_mem in raw_mems]
 
     if print_utilization:
-        raw_utils = re.findall(r"([0-9]+)% +Default", output)
+        raw_utils = re_util.findall(output)
         utils = [int(util) for util in raw_utils]
 
     if print_memory and print_utilization:
