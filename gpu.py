@@ -1,3 +1,4 @@
+import re
 import os
 import argparse
 
@@ -10,12 +11,14 @@ from utils import (
 )
 
 
-def print_stat(cluster, term=None, eol_char=os.linesep, debug=False, **kwargs):
+# TODO: [termtables](https://github.com/nschloe/termtables)
+def print_stat(cluster, term=None, suppress_warning=False, debug=False, **kwargs):
     if term is None:
         term = Terminal()
 
-    outputs = cluster.query("nvidia-smi")
+    eol = (term.clear_eol + os.linesep)
 
+    outputs = cluster.query("nvidia-smi")
     maxlen = max([len(n) for n in outputs.keys()])
 
     for name, (connection_type, output) in outputs.items():
@@ -26,29 +29,30 @@ def print_stat(cluster, term=None, eol_char=os.linesep, debug=False, **kwargs):
                 stat = term.blue("Connection error")
         else:
             stat = gpu_stat.get_status(term=term, output=output, **kwargs)
+            stat = " │ ".join(stat)
 
         name_style = misc.connection_style(term, connection_type)
-        print(f"│ {name_style(name.ljust(maxlen))} │ {stat} │", end=eol_char)
+        print(f"│ {name_style(name):<{maxlen}} │ {stat} │", end=eol)
 
-    if "ssh" in [t for t, _ in outputs.values()]:
+    if not suppress_warning and "ssh" in [t for t, _ in outputs.values()]:
         print(
-            "\n" + term.yellow("Some server monitor(s) are running in fallback mode.") + term.clear_eol + \
-            "\n" + term.yellow("Please contact to admin.") + term.clear_eol,
-            end=eol_char
+            eol + term.yellow("Some server monitor(s) are running in fallback mode.") + \
+            eol + term.yellow("Please contact to admin."),
+            end=eol,
         )
 
-    if None in [t for t, _ in outputs.values()]:
+    if not suppress_warning and None in [t for t, _ in outputs.values()]:
         print(
-            "\n" + term.red("Cannot connect to some server monitor(s).") + term.clear_eol + \
-            "\n" + term.red("Please contact to admin.") + term.clear_eol,
-            end=eol_char
+            eol + term.red("Cannot connect to some server monitor(s).") + \
+            eol + term.red("Please contact to admin."),
+            end=eol,
         )
 
 
 HELP = """
 Remote GPU Monitor
 
-usage: gpus [-h] {all, mem, util} [-i [INTERVAL]] [-t <TARGET ...>]
+usage: gpus [-h] {all, mem, util} [-i [INTERVAL]] [-t <TARGET ...>] [-f <HOSTS>] [--debug]
 
 arguments:
   all:  Print memory and utilization of GPU
@@ -57,7 +61,7 @@ arguments:
 
 optional arguments:
   -h, --help                       Print this help screen
-  -t, --target-hosts <TARGET...>   Specify target host names to monitor
+  -t, --target-hosts <TARGET...>   Specify target host names to monitor (support RegEx)
   -i, --interval [INTERVAL]        Use watch mode if given; seconds update interval
   -f, --hosts-file                 Path to the 'hosts.json' file
   -d, --debug                      Show information for debugging
@@ -72,6 +76,7 @@ if __name__ == "__main__":
     parser.add_argument("-t", "--target-hosts", nargs="+")
     parser.add_argument("-i", "--interval", nargs="?", type=float, default=0)
     parser.add_argument("-d", "--debug", action="store_true")
+    parser.add_argument("-s", "--suppress-warning", action="store_true")
     parser.add_argument("-h", "--help", action="store_true")
     args = parser.parse_args()
 
@@ -84,17 +89,26 @@ if __name__ == "__main__":
 
     # Load hosts
     try:
-        hosts = misc.load_json(os.path.expanduser(args.hosts_file))
+        origin_hosts = misc.load_json(os.path.expanduser(args.hosts_file))
 
         if args.target_hosts:
-            try:
-                hosts = {name: hosts[name] for name in args.target_hosts}
-            except KeyError as e:
-                print(f"Invalid host name {e}")
-                exit(-1)
+            target_regex = [
+                re.compile(target_host)
+                for target_host in args.target_hosts
+            ]
 
-        # temporary remote extraction
-        hosts = {name: host for name, host in hosts.items()}
+            hosts = {
+                name: host
+                for name, host in origin_hosts.items()
+                if any([regex.search(name) for regex in target_regex])
+            }
+
+        else:
+            hosts = origin_hosts
+
+        if not hosts:
+            raise ValueError(f"No host matched\nHosts: [{', '.join(origin_hosts.keys())}]")
+
     except ValueError as e:
         print(e)
         exit(-1)
@@ -104,14 +118,17 @@ if __name__ == "__main__":
 
     if args.interval is None:
         args.interval = 2
+
     if args.interval > 0:
         args.interval = max(0.5, args.interval)
+
         misc.loop_update(
             print_stat,
             cluster=cluster,
             print_memory=print_memory,
             print_utilization=print_utilization,
             interval=args.interval,
+            suppress_warning=args.suppress_warning,
             debug=args.debug,
         )
     else:
@@ -119,5 +136,6 @@ if __name__ == "__main__":
             cluster=cluster,
             print_memory=print_memory,
             print_utilization=print_utilization,
+            suppress_warning=args.suppress_warning,
             debug=args.debug,
         )

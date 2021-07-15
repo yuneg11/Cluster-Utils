@@ -15,12 +15,10 @@ def loop_update(func, *args, interval=1, debug=False, **kwargs):
             try:
                 query_start = time.time()
 
-                # Move cursor to (0, 0) but do not restore original cursor loc
-                print(term.move(0, 0), end="")
+                print(term.home, end="")
                 func(
                     *args,
                     term=term,
-                    eol_char=(term.clear_eol + os.linesep),
                     debug=debug,
                     **kwargs,
                 )

@@ -62,11 +62,13 @@ class Client:
         try:
             self.socket.sendall(command.encode())
             data = self.socket.recv(RECV_BUFFER)
+
             if data:
                 output = data.decode("utf-8")
             else:
                 raise OSError(444, "Data receive failed")
 
+            # TODO: Add EOF character at the end of data (from server)
             while output[-1] != "\n":
                 data = self.socket.recv(RECV_BUFFER)
                 output += data.decode("utf-8")
