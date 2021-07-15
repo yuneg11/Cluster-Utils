@@ -28,7 +28,7 @@ def print_stat(cluster, term=None, eol_char=os.linesep, debug=False, **kwargs):
             stat = gpu_stat.get_status(term=term, output=output, **kwargs)
 
         name_style = misc.connection_style(term, connection_type)
-        print(f"[{name_style(name.ljust(maxlen))}] {stat}", end=eol_char)
+        print(f"│ {name_style(name.ljust(maxlen))} │ {stat} │", end=eol_char)
 
     if "ssh" in [t for t, _ in outputs.values()]:
         print(

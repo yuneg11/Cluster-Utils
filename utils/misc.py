@@ -50,7 +50,8 @@ def load_json(file_path="hosts.json"):
 
 def connection_style(term, connection_type):
     if connection_type == "tcp":
-        return term.white
+        # return term.white
+        return lambda msg: msg
     elif connection_type == "ssh":
         return term.yellow
     else:

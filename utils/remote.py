@@ -5,7 +5,7 @@ import subprocess
 
 SOCK_TIMEOUT = 2
 SSH_TIMEOUT = 2
-RECV_BUFFER = 10000
+RECV_BUFFER = 5000
 
 
 class Client:
@@ -19,7 +19,7 @@ class Client:
             try:
                 self.socket = socket.create_connection(host["tcp"], SOCK_TIMEOUT)
                 self.type = "tcp"
-            except socket.error as e:
+            except OSError as e:
                 self.socket = e
 
         if "ssh" in host:
@@ -65,8 +65,13 @@ class Client:
             if data:
                 output = data.decode("utf-8")
             else:
-                raise socket.error(444, "Data receive failed")
-        except socket.error as e:
+                raise OSError(444, "Data receive failed")
+
+            while output[-1] != "\n":
+                data = self.socket.recv(RECV_BUFFER)
+                output += data.decode("utf-8")
+
+        except OSError as e:
             output = e
             self.socket.close()
             self.socket = e
@@ -80,6 +85,7 @@ class Client:
         try:
             data = subprocess.check_output(exec, timeout=SSH_TIMEOUT)
             output = data.decode("utf-8")
+
         except Exception as e:
             output = e
             self.ssh = e

@@ -51,4 +51,4 @@ def get_status(term, output, print_memory=True, print_utilization=True):
     else:
         raise ValueError("Invalid print options")
 
-    return " | ".join(status)
+    return " │ ".join(status)
