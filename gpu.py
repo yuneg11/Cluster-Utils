@@ -11,7 +11,6 @@ from utils import (
 )
 
 
-# TODO: [termtables](https://github.com/nschloe/termtables)
 def print_stat(cluster, term=None, suppress_warning=False, debug=False, **kwargs):
     if term is None:
         term = Terminal()
@@ -24,15 +23,21 @@ def print_stat(cluster, term=None, suppress_warning=False, debug=False, **kwargs
     for name, (connection_type, output) in outputs.items():
         if isinstance(output, Exception):
             if debug:
-                stat = term.blue(str(output))  # For detailed error message
+                stat = [term.blue(str(output))]  # For detailed error message
             else:
-                stat = term.blue("Connection error")
+                stat = [term.blue("Connection error")]
         else:
             stat = gpu_stat.get_status(term=term, output=output, **kwargs)
-            stat = " │ ".join(stat)
 
         name_style = misc.connection_style(term, connection_type)
-        print(f"│ {name_style(name):<{maxlen}} │ {stat} │", end=eol)
+
+        # TODO: Detail width adjustment
+        if (kwargs["print_utilization"] and kwargs["print_utilization"] and term.width < 138 and len(stat) > 4) \
+        or (term.width < 98 and len(stat) > 4):
+            print(f"│ {name_style(name):<{maxlen}} │ {' │ '.join(stat[:len(stat)//2])} │", end=eol)
+            print(f"│ {'':<{maxlen}} │ {' │ '.join(stat[len(stat)//2:])} │", end=eol)
+        else:
+            print(f"│ {name_style(name):<{maxlen}} │ {' │ '.join(stat)} │", end=eol)
 
     if not suppress_warning and "ssh" in [t for t, _ in outputs.values()]:
         print(
