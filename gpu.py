@@ -18,22 +18,24 @@ def print_stat(cluster, term=None, suppress_warning=False, debug=False, **kwargs
     eol = (term.clear_eol + os.linesep)
 
     outputs = cluster.query("nvidia-smi")
-    maxlen = max([len(n) for n in outputs.keys()])
+    maxlen = max(len(n) for n in outputs.keys())
 
     for name, (connection_type, output) in outputs.items():
         if isinstance(output, Exception):
-            if debug:
-                stat = [term.blue(str(output))]  # For detailed error message
-            else:
-                stat = [term.blue("Connection error")]
+            stat = [term.blue(str(output))] if debug else [term.blue("Connection error")]
         else:
             stat = gpu_stat.get_status(term=term, output=output, **kwargs)
 
         name_style = misc.connection_style(term, connection_type)
 
         # TODO: Detail width adjustment
-        if (kwargs["print_utilization"] and kwargs["print_utilization"] and term.width < 138 and len(stat) > 4) \
-        or (term.width < 98 and len(stat) > 4):
+        if (
+            kwargs["print_utilization"]
+            and term.width < 138
+            and len(stat) > 4
+            or term.width < 98
+            and len(stat) > 4
+        ):
             print(f"│ {name_style(name):<{maxlen}} │ {' │ '.join(stat[:len(stat)//2])} │", end=eol)
             print(f"│ {'':<{maxlen}} │ {' │ '.join(stat[len(stat)//2:])} │", end=eol)
         else:
@@ -105,8 +107,9 @@ if __name__ == "__main__":
             hosts = {
                 name: host
                 for name, host in origin_hosts.items()
-                if any([regex.search(name) for regex in target_regex])
+                if any(regex.search(name) for regex in target_regex)
             }
+
 
         else:
             hosts = origin_hosts

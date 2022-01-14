@@ -12,7 +12,7 @@ class Cluster:
         outputs = {}
 
         for name, host in self.hosts.items():
-            if isinstance(host, tuple) or isinstance(host, list):
+            if isinstance(host, (tuple, list)):
                 hostname, port = host
                 exec = ["ssh", str(hostname), "-p", str(port), "-o", "LogLevel=QUIET", "-t", str(command)]
                 try:

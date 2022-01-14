@@ -44,11 +44,7 @@ class Client:
             if isinstance(output, Exception):
                 self.error = output
 
-                if self.ssh is not None:
-                    self.type = "ssh"
-                else:
-                    self.type = None
-
+                self.type = "ssh" if self.ssh is not None else None
         if self.type == "ssh":
             output = self.ssh_query(command)
 
@@ -109,7 +105,6 @@ class Cluster:
 
         loop = asyncio.get_event_loop()
         results = loop.run_until_complete(asyncio.gather(*futures))
-        outputs = {name: output for name, output in zip(self.clients.keys(), results)}
         # loop.close()
 
-        return outputs
+        return dict(zip(self.clients.keys(), results))
